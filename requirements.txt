@@ -1,0 +1,9 @@
+cartopy
+cdsapi
+cffi
+matplotlib
+numpy
+pandas
+scipy
+xarray
+
