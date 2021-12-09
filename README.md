@@ -1,12 +1,14 @@
 # Block-Dec2016-LWA-ESA
 
-Code to produce all figures of the article **Evidence for a "Traffic Jam" Onset of Blocked Flow from Ensemble Sensitivity Analysis**.
+Code to produce all figures of the article **Evidence for a "Traffic Jam" Onset of Blocked Flow from Ensemble Sensitivity Analysis** (submitted to JAS).
 
 - Research by [Christopher Polster](https://dynmet.ipa.uni-mainz.de/christopher-polster/) and [Volkmar Wirth](https://dynmet.ipa.uni-mainz.de/volkmar-wirth/).
 - Software by Christopher Polster.
 - [hn2016_falwa](https://github.com/csyhuang/hn2016_falwa/) package by [Clare S. Y. Huang](https://csyhuang.github.io/).
 
 [LICENSE](LICENSE). The contents of `scripts/hn2016_falwa` are re-distributed under the terms of their [LICENSE](scripts/hn2016_falwa/LICENSE.txt).
+
+[![DOI](https://zenodo.org/badge/430733123.svg)](https://zenodo.org/badge/latestdoi/430733123)
 
 
 ## How To Run
