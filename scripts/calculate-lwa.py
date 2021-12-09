@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     # Global attributes
     attrs = {
-        "created": dt.datetime.utcnow().strftime("%Y-%d-%m %H:%M:%S UTC")
+        "created": dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     }
     attrs.update(calculator.attrs)
 
