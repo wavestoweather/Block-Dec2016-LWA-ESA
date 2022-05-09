@@ -1,0 +1,10 @@
+*.nc
+*.grb
+
+*.so
+*.o
+_*.c
+*.pyc
+
+.ipynb_checkpoints/
+
