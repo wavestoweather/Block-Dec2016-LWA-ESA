@@ -151,6 +151,30 @@ def plot_box(ax, box, **kwargs):
 
 # Plot presets
 
+def plume(ax, x, ys, clusters, reanalysis=None, percentile=None, linewidth=1.0, **kwargs):
+    # Unpack clusters
+    bot_cluster, not_cluster, top_cluster = clusters
+    # Number of members in ensemble to determine line alpha
+    n = ys.shape[1]
+    # Make no-cluster lines a bit transparent so density can be approximated
+    line_not = ax.plot(x, ys[:,not_cluster], linewidth=0.8*linewidth, color="#333", alpha=(0.8 - 0.1*(n/50)), **kwargs)
+    line_bot = ax.plot(x, ys[:,bot_cluster], linewidth=1.0*linewidth, color=esa_blue, **kwargs)
+    line_top = ax.plot(x, ys[:,top_cluster], linewidth=1.0*linewidth, color=esa_red, **kwargs)
+    # Construct legend
+    legend_handles = [line_not[0], line_top[0], line_bot[0]]
+    legend_labels = [
+        "ENS member",
+        "Top" if percentile is None else "{}% top".format(percentile),
+        "Bottom" if percentile is None else "{}% bottom".format(percentile),
+    ]
+    # Add the reanalysis timeseries to the plot and legend
+    if reanalysis is not None:
+        line_ana = ax.plot(x, reanalysis, linewidth=2.4*linewidth, color="#000", **kwargs)
+        legend_handles.append(line_ana[0])
+        legend_labels.append("Reanalysis")
+    return legend_handles, legend_labels
+
+
 def contour(ax, y, x, field, **kwargs):
     props = {
         "linewidths": 1,

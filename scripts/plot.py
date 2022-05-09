@@ -257,6 +257,7 @@ if __name__ == "__main__":
     # Scatter plot only
     elif args.layout == "scatter":
         fig = plt.figure(figsize=(4, 4))
+        ax_src = None # no scatter source plume panel
         ax_sct = fig.add_axes((0.15, 0.12, 0.80, 0.80))
         if args.panel_letters is None:
             letters = []
@@ -270,9 +271,10 @@ if __name__ == "__main__":
     # Scatter plot with cluster-mean maps at scatter valid time
     elif args.layout == "cluster+scatter":
         fig = plt.figure(figsize=(9, 5))
-        ax_sct = fig.add_axes((0.60, 0.10, 0.39, 0.84))
-        ax_top = add_map_axes(fig, (0.06, 0.58, 0.45, 0.30), lonlim=(-135, 75), noxlabels=True)
-        ax_bot = add_map_axes(fig, (0.06, 0.21, 0.45, 0.30), lonlim=(-135, 75))
+        ax_src = fig.add_axes((0.68, 0.70, 0.29, 0.24))
+        ax_sct = fig.add_axes((0.68, 0.10, 0.29, 0.46))
+        ax_top = add_map_axes(fig, (0.06, 0.58, 0.52, 0.30), noxlabels=True)
+        ax_bot = add_map_axes(fig, (0.06, 0.21, 0.52, 0.30))
         cx_src = fig.add_axes((0.06, 0.10, 0.45, 0.023))
         tx_src = fig.text(0.06, 0.98, "", ha="left", va="top", fontsize="x-large")
     # Scatter plot with corresponding map on top
@@ -282,6 +284,7 @@ if __name__ == "__main__":
             add_map_axes(fig, (0.15, 0.80, 0.80, 0.20))
         ]
         cx_esa = fig.add_axes((0.15, 0.72, 0.80, 0.02))
+        ax_src = None # no scatter source plume panel
         ax_sct = fig.add_axes((0.15, 0.08, 0.80, 0.51))
         # The only map shown
         delta_hours = [int((args.scatter.valid - args.target.valid) / dt.timedelta(hours=1))]
@@ -394,8 +397,9 @@ if __name__ == "__main__":
         ana = restrict_data_region(ana)
         if args.resample is not None:
             ana = ana.resample({ "time": args.resample }).mean(keep_attrs=True)
-        # Extract target metric from reanalysis
-        target_ana = target_metric(ana.lwa)
+        # Extract target metric from reanalysis (restrict to time period
+        # covered by ensemble)
+        target_ana = target_metric(ana.lwa).sel(time=slice(min(data.time.values), max(data.time.values)))
         target_ana_values = target_ana.sel(time=args.target.valid).values
         # Must have same attributes as ensemble data
         assert pv_attrs["name"] == ana.pv.attrs["name"]
@@ -499,40 +503,15 @@ if __name__ == "__main__":
         # Vertical line marking the target valid time
         ax_plu.axvline(args.target.valid, color="#000000", linewidth=1.5, linestyle="dashed")
         # Plot timeseries of rank cluster and other members
-        line_not_cluster = ax_plu.plot(
+        _legend = plotting.plume(
+            ax_plu,
             target_ens.time.values,
-            target_ens.values[:,not_cluster],
-            linewidth=0.8,
-            color="#333333",
-            alpha=(0.80 - (data.number.size / 50) * 0.1) # a bit transparent so density can be approximated
+            target_ens.values,
+            clusters=(bot_cluster, not_cluster, top_cluster),
+            reanalysis=(None if args.reanalysis is None else target_ana.values),
+            percentile=args.percentile
         )
-        line_bot_cluster = ax_plu.plot(
-            target_ens.time.values,
-            target_ens.values[:,bot_cluster],
-            linewidth=1,
-            color=esa_blue
-        )
-        line_top_cluster = ax_plu.plot(
-            target_ens.time.values,
-            target_ens.values[:,top_cluster],
-            linewidth=1,
-            color=esa_red
-        )
-        # Prepare legend with entry for each cluster
-        legend_handles = [line_not_cluster[0], line_top_cluster[0], line_bot_cluster[0]]
-        legend_labels = [
-            "ENS member",
-            "{}% top".format(args.percentile),
-            "{}% bottom".format(args.percentile),
-        ]
-        # Add the reanalysis timeseries to the plot and legend
-        if args.reanalysis is not None:
-            line_ana = ax_plu.plot(target_ana.time.values, target_ana.values, color="black", linewidth=2.4)
-            legend_handles.append(line_ana[0])
-            legend_labels.append("reanalysis")
-        # Insert the legend (top left should be empty)
-        ax_plu.legend(legend_handles, legend_labels, loc="upper left", fontsize="small")
-
+        ax_plu.legend(*_legend, loc="upper left", fontsize="small")
         # Only use 00 times as time axis labels
         time_ticks = [t.values for t in target_ens.time if t.dt.hour == 0]
         ax_plu.set_xticks(time_ticks[::2])
@@ -544,7 +523,6 @@ if __name__ == "__main__":
         set_grid(ax_plu)
         ax_plu.set_ylabel(target_metric.label(lwa_attrs))
         set_panel_title(ax_plu, "Evolution of Target Metric")
-
 
         # Cluster-mean LWA and PV for top members
         cf_lwa = contourf_lwa(
@@ -694,6 +672,40 @@ if __name__ == "__main__":
     if "scatter" in args.layout:
         assert args.scatter is not None, "No scatter extraction valid time and box given"
         _scatter_metric = metrics.BoxAverage(args.scatter)
+        # Show plume of source metric for 4 days around scatter source valid
+        # time if a corresponding panel exists
+        if ax_src is not None:
+            _period = { "time": slice(
+                    args.scatter.valid - dt.timedelta(hours=48),
+                    args.scatter.valid + dt.timedelta(hours=48)
+            ) }
+            source_ens_plume = _scatter_metric(source_ens.sel(_period))
+            # Mark valid time of scatter source
+            ax_src.axvline(args.scatter.valid, color="#000000", linewidth=1.5, linestyle="dashed")
+            # Plot timeseries of rank cluster and other members, add the
+            # reanalysis timeseries if data is available
+            _legend = plotting.plume(
+                ax_src,
+                source_ens_plume.time.values,
+                source_ens_plume.values,
+                clusters=(bot_cluster, not_cluster, top_cluster),
+                reanalysis=(None if args.reanalysis is None else _scatter_metric(source_ana.sel(_period)).values),
+                linewidth=0.8,
+                percentile=args.percentile
+            )
+            ax_src.legend(*_legend, loc="upper left", fontsize="x-small", handlelength=1.0)
+            # Only use 00 times as time axis labels
+            ax_src.set_xticks([t.values for t in source_ens_plume.time if t.dt.hour == 0])
+            ax_src.set_xticks([t.values for t in source_ens_plume.time if t.dt.hour == 12], minor=True)
+            ax_src.xaxis.set_major_formatter(date_formatter)
+            ax_src.set_xlim((min(source_ens_plume.time.values), max(source_ens_plume.time.values)))
+            ax_src.set_ylim(mult_limit(source_ens_plume.values.flatten(), 50))
+            set_panel_title(ax_src, "Evolution of Agg. " + texify(source_ens.attrs["name"]))
+            ax_src.set_ylabel("Agg. {source} [{unit}]".format(
+                source=texify(source_ens.attrs["name"]),
+                unit=texify(source_ens.attrs["unit"])
+            ))
+        # Evaluate at scatter source valid time
         source_ens_values = _scatter_metric(source_ens.sel(time=args.scatter.valid)).values
         # Markers for ENS
         ax_sct.scatter(
@@ -714,12 +726,12 @@ if __name__ == "__main__":
                 s=125,
                 c="#000000",
                 marker="*",
-                label="reanalysis"
+                label="Reanalysis"
             )
         # Linear fit to ensemble
         reg = linregress(source_ens_values, target_ens_values)
-        xmin = min(source_ens_values) - 5
-        xmax = max(source_ens_values) + 5
+        xmin = min(source_ens_values) - 20
+        xmax = max(source_ens_values) + 20
         ax_sct.plot(
             [xmin, xmax],
             [reg.intercept + reg.slope * xmin, reg.intercept + reg.slope * xmax],
@@ -727,13 +739,14 @@ if __name__ == "__main__":
             linewidth=1.
         )
         # Configure scatter panel
-        ax_sct.legend(loc="upper right", fontsize="small")
+        ax_sct.legend(loc="upper left", fontsize="x-small", markerscale=0.7, handlelength=1.0)
         _ymin, _ymax = mult_limit(target_ens_values, mult=5, minval=0)
-        ax_sct.set_ylim((_ymin, 1.13*_ymax - 0.13*_ymin))
+        ax_sct.set_ylim((_ymin, 1.10*_ymax - 0.10*_ymin))
         ax_sct.set_ylabel("Target ({}) [{}]".format(
             format_date_full(args.target.valid),
             texify(lwa_attrs["unit"])
         ))
+        ax_sct.set_xlim(mult_limit(source_ens_values, mult=100, tol=50))
         ax_sct.set_xlabel("Aggregated {source} ({dt:+} h) [{unit}]".format(
             source=texify(source_ens.attrs["name"]),
             dt=int((args.scatter.valid - args.target.valid) / dt.timedelta(hours=1)),
@@ -741,7 +754,7 @@ if __name__ == "__main__":
         ))
         set_grid(ax_sct)
         set_panel_title(ax_sct, "Sensitivity Scatter")
-        ax_sct.set_title("$r = {:.2f}$".format(reg.rvalue), loc="right")
+        ax_sct.set_title("$r = {:.2f}$".format(reg.rvalue), loc="right", fontsize="medium")
 
 
     # Nakamura and Huang (2018) figure 4 #
@@ -780,7 +793,7 @@ if __name__ == "__main__":
         ax_sct.set_xlabel("{name} [{unit}]".format(**texify(lwa_attrs)))
         ax_sct.set_ylim((-500, 2000))
         ax_sct.set_ylabel("Flux [{unit}]".format(**texify(data.f1.attrs)))
-        ax_sct.legend(loc="lower center", ncol=2)
+        ax_sct.legend(loc="lower center", ncol=2, handlelength=1.0)
         set_grid(ax_sct)
         set_panel_title(ax_sct, "{} – {} {:%Y}".format(
             date_formatter.format_data(_tslc.start),

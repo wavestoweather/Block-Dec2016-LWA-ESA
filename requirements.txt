@@ -1,4 +1,4 @@
-cartopy
+cartopy>=0.20
 cdsapi
 cffi
 matplotlib

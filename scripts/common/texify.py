@@ -9,7 +9,7 @@ def texify(x):
 lookup = {
     # Variables
     "QGPV":         r"$q$",
-    "<A>cos(φ)":    r"$\langle A \rangle \cos(\varphi)$",
+    "<A>cos(φ)":    r"$\langle A \rangle \cos(\phi)$",
     "F1+F2+F3":     r"$\langle F_\lambda \rangle$",
     # Units
     "K":            r"$\mathrm{K}$",
