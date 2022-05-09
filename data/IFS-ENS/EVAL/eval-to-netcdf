@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# Convert files to NetCDF and remove original GRIB files
+GRIBS="FIXME/ENS-DEC18-EVAL-*.grb" # FIXME: set an appropriate path
+for GRB in ${GRIBS}
+do
+        grib_to_netcdf -u time -o "${GRB%.grb}.nc" "${GRB}"  && rm -f "${GRB}"
+done
+

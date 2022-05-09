@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+for rqst in request-eval-*; do
+    sbatch --job-name="${rqst}" mars "${rqst}"
+done
+
