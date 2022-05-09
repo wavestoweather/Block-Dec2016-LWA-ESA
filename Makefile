@@ -16,6 +16,8 @@ FIGURES := \
 		figures/forecast-combination.pdf \
 		figures/event24-reanalysis+nh18fig5.pdf \
 		figures/event24-plume.pdf \
+		figures/event24-budget.pdf \
+		figures/event24-evaluation.pdf \
 		figures/event24-maps+hovmoeller.pdf \
 		figures/event24-cluster+scatter.pdf \
 		figures/event24-maps-separate.pdf \
@@ -42,6 +44,12 @@ scripts/calculate-lwa.py: scripts/common/regrid.py scripts/hn2016_falwa/oopinter
 	touch $@
 
 scripts/plot.py: scripts/common/plotting.py scripts/common/esa.py scripts/common/metrics.py scripts/common/texify.py
+	touch $@
+
+scripts/plot-budget.py: scripts/plot.py scripts/common/plotting.py scripts/common/texify.py
+	touch $@
+
+scripts/plot-evaluation.py: scripts/common/metrics.py scripts/common/plotting.py
 	touch $@
 
 scripts/common/metrics.py: scripts/common/texify.py
@@ -79,17 +87,23 @@ scripts/hn2016_falwa/%$(PYEXT): scripts/hn2016_falwa/%.f90
 # Write processed data to netcdf files:
 event24_ana := data/ERA-2016-12-10-to-2016-12-24-lwa-qg.nc
 event24_ens := data/ENS-2016-12-10T00Z-lwa-qg.nc data/ENS-2016-12-10T12Z-lwa-qg.nc data/ENS-2016-12-11T00Z-lwa-qg.nc
+event24_eval := data/EVAL-2016-12-18T00Z-lwa-qg.nc
+
 # Don't remove these intermediate files
-.SECONDARY: $(event24_ana) $(event24_ens)
+.SECONDARY: $(event24_ana) $(event24_ens) $(event24_eval)
+.SECONDARY: data/ERA-2016-12-10-to-2016-12-24-uvt.nc
 
 # Reanalysis data
 data/ERA-%-lwa-qg.nc: data/ERA-%-uvt.nc scripts/calculate-lwa.py
-	python3 -m scripts.calculate-lwa --half-resolution $<
+	python3 -m scripts.calculate-lwa --budget --half-resolution $<
 
 # Ensemble data
 data/ENS-%-lwa-qg.nc: scripts/calculate-lwa.py data/IFS-ENS/ENS-%/ENS-*-[uvt].nc
 	python3 -m scripts.calculate-lwa --half-resolution $(filter-out $<,$^)
 
+# Forecast evaluation data for 18 Dec 00 UTC
+data/EVAL-2016-12-18T00Z-lwa-qg.nc: scripts/calculate-lwa.py data/IFS-ENS/EVAL/ENS-DEC18-EVAL-*.nc | data
+	python3 -m scripts.calculate-lwa --half-resolution --eval data/IFS-ENS/EVAL/ENS-DEC18-EVAL-*.nc
 
 
 # Data Processing (Part 2):
@@ -102,8 +116,8 @@ figures/forecast-combination.pdf: figures/forecast-combination/forecast-combinat
 
 # Figure 2: Reanalysis overview
 # Figure 3: Ensemble target metric overview
-# Figure 4: ESA maps and Hovmöller with full flux
-# Figure 5: Cluster and scatter analysis of upstream region
+# Figure 6: ESA maps and Hovmöller with full flux
+# Figure 7: Cluster and scatter analysis of upstream region
 figures/event24-%.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 	python3 -m scripts.plot $* 2016-12-18T00,65,10,35,-30 $(event24_ens) \
 			--reanalysis $(event24_ana) \
@@ -117,7 +131,23 @@ figures/event24-%.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 			--hovmoeller-extent "target" \
 			--end 2016-12-24T00
 
-# Figure 6: ESA maps with flux terms
+
+# Figure 4: Integrated budget in 2.5 days prior to onset
+figures/event24-budget.pdf: scripts/plot-budget.py $(event24_ana) | figures
+	python3 -m scripts.plot-budget $(event24_ana) 2016-12-15T12 2016-12-18T00,65,10,35,-30 \
+			--statistics-output "data/budget-statistics.json" \
+			--output $@
+
+
+# Figure 5: Target forecast evaluation
+figures/event24-evaluation.pdf: scripts/plot-evaluation.py $(event24_eval) $(event24_ana) | figures
+	python3 -m scripts.plot-evaluation 65,10,35,-30 $(event24_eval) \
+		--reanalysis $(event24_ana) \
+		--highlight 2016-12-10T00 2016-12-10T12 2016-12-11T00 \
+		--output $@
+
+
+# Figure 8: ESA maps with flux terms
 figures/event24-maps-separate.pdf: figures/event24-maps-separate/event24-maps-separate.tex \
 		figures/event24-maps-separate/f1f3.pdf figures/event24-maps-separate/f2.pdf
 	cd $(dir $<) && lualatex $(notdir $<)
@@ -145,7 +175,7 @@ figures/event24-maps-separate/f2.pdf: scripts/plot.py $(event24_ana) $(event24_e
 			--source "f2" \
 			--panel-letters "efgh"
 
-# Figure 7: Cluster analysis of F2 in block
+# Figure 9: Cluster analysis of F2 in block
 figures/event24-cluster-f2.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 	python3 -m scripts.plot cluster 2016-12-18T00,65,10,35,-30 $(event24_ens) \
 			--reanalysis $(event24_ana) \
@@ -155,7 +185,7 @@ figures/event24-cluster-f2.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 			--significance-level $(SIGNIFICANCE_LEVEL) \
 			--source "f2"
 
-# Figure 8: Flux-LWA relationship in block (similar to NH18's Fig. 4)
+# Figure 10: Flux-LWA relationship in block (similar to NH18's Fig. 4)
 figures/event24-nh18fig4.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 	python3 -m scripts.plot nh18fig4 2016-12-18T00,65,10,35,-30 $(event24_ens) \
 			--reanalysis $(event24_ana) \

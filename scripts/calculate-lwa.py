@@ -1,6 +1,9 @@
 import argparse
 import os
+import re
 import datetime as dt
+
+import numpy as np
 
 from .common.regrid import half_resolution
 
@@ -24,20 +27,35 @@ def encoding_int16(scale_factor, add_offset):
 
 class QuasiGeostrophicCalculator:
 
-    return_vars = ["pv", "lwa", "f1", "f2", "f3"]
+    # Attributes for the netcdf output files
     attrs = {
         "framework": "QG"
     }
-    encoding = {
-        "lwa": encoding_int16(0.02, 400),
-        "pv": encoding_int16(7.0e-8, 0),
-        "f1": encoding_int16(0.15, 0),
-        "f2": encoding_int16(0.15, 0),
-        "f3": encoding_int16(0.15, 0)
-    }
+    # File name suffix
     suffix = "-qg"
 
+    def __init__(self, budget=False):
+        self.budget = budget
+        # Variables (in order) returned by calculate()
+        self.return_vars = ["pv", "lwa", "f1", "f2", "f3"]
+        # Encoding information for netcdf output
+        self.encoding = {
+            "lwa": encoding_int16(0.02, 400),
+            "pv": encoding_int16(7.0e-8, 0),
+            "f1": encoding_int16(0.15, 0),
+            "f2": encoding_int16(0.15, 0),
+            "f3": encoding_int16(0.15, 0),
+        }
+        # More fields returned if budget is included
+        if budget:
+            self.return_vars.extend(["czaf", "demf", "mhf"])
+            self.encoding["czaf"] = encoding_int16(1.0e-6, 0.)
+            self.encoding["demf"] = encoding_int16(1.0e-6, 0.)
+            self.encoding["mhf"] =  encoding_int16(1.0e-6, 0.)
+
     def calculate(self, xlon, ylat, plev, u, v, t):
+        # On-demand import
+        from .hn2016_falwa.oopinterface import QGField
         nlat = ylat.size
         # QGField has specific requirements for ordering of the dimensions,
         # need to flip some to make the data fit
@@ -65,37 +83,61 @@ class QuasiGeostrophicCalculator:
         fld.compute_reference_states(northern_hemisphere_results_only=True)
         fld.compute_lwa_and_barotropic_fluxes(northern_hemisphere_results_only=True)
         # Flip fields back to original orientation
-        return (
+        out = (
             -fld.qgpv[7,:nlat,:],
             fld.lwa_baro[::-1,:],
             fld.adv_flux_f1[::-1,:],
             fld.adv_flux_f2[::-1,:],
             fld.adv_flux_f3[::-1,:]
         )
+        # Add budget terms to output if requested
+        if self.budget:
+            out = out + (
+                fld.convergence_zonal_advective_flux[::-1,:],
+                fld.divergence_eddy_momentum_flux[::-1,:],
+                fld.meridional_heat_flux[::-1,:],
+            )
+        return out
 
     def get_var_attrs(self, var):
         if var == "pv":
-            return {
-                "name": "QGPV",
-                "unit": "1/s",
-                "level": "7 km"
-            }
+            return { "name": "QGPV", "unit": "1/s", "level": "7 km" }
         elif var == "lwa":
-            return {
-                "name": "<A>cos(φ)",
-                "unit": "m/s",
-            }
+            return { "name": "<A>cos(φ)", "unit": "m/s", }
         elif var in ["f1", "f2", "f3"]:
-            return {
-                "name": var.upper(),
-                "unit": "m²/s²"
-            }
+            return { "name": var.upper(), "unit": "m²/s²" }
+        elif var == "czaf":
+            return { "name": "Convergence of the Zonal Advective Flux", "unit": "m/s²" }
+        elif var == "demf":
+            return { "name": "Divergence of the Eddy Momentum Flux", "unit": "m/s²" }
+        elif var == "mhf":
+            return { "name": "Meridional Heat Flux", "unit": "m/s²" }
         else:
             return {}
 
 
 
+INIT_REGEX = re.compile(r".*EVAL-([1-9][0-9][0-9][0-9]-[0-9][0-2]-[0-3][0-9]T[0-2][0-9])Z.nc")
+# In case of forecast evaluation, time in the dataset (normally cotaining valid
+# time) is replaced with forecast initialization time (this way processing
+# below falls back to the scheme for reanalysis data and no additional
+# exception is needed). The valid time is kept in a new coordinate.
+def preprocess_eval(ds):
+    filename = ds.encoding["source"] # https://github.com/pydata/xarray/issues/2550
+    match = INIT_REGEX.match(filename)
+    assert match is not None
+    init = dt.datetime.strptime(match.groups()[0], "%Y-%m-%dT%H")
+    return ds.assign_coords({ "time": [init], "valid": ds["time"].values })
+
+
 parser = argparse.ArgumentParser()
+parser.add_argument("--eval", action="store_true", help="""
+    Process in forecast evaluation mode (merges multiple forecasts for the same
+    valid time)
+""")
+parser.add_argument("--budget", action="store_true", help="""
+    Store budget terms in output (only available in QG framework).
+""")
 parser.add_argument("--half-resolution", action="store_true", help="""
     Regrid the input data in the horizonatl to a mesh with half the resolution.
 """)
@@ -108,14 +150,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Import big modules after argument parsing so --help is fast
-    import numpy as np
     import pandas as pd
     import xarray as xr
-    from .hn2016_falwa.oopinterface import QGField
-    calculator = QuasiGeostrophicCalculator()
 
+    calculator = QuasiGeostrophicCalculator(args.budget)
+
+    mf_kwargs = {
+        "parallel": False,
+        "chunks": { "time": 1 },
+    }
+    # Combine multiple forecasts for the same valid time for evaluation
+    if args.eval:
+        mf_kwargs["combine"] = "nested"
+        mf_kwargs["concat_dim"] = "time"
+        mf_kwargs["preprocess"] = preprocess_eval
     # Open dataset and perform basic integrity check
-    data = xr.open_mfdataset(args.infile, parallel=False, chunks={ "time": 1 })
+    data = xr.open_mfdataset(args.infile, **mf_kwargs)
     assert "u" in data, "zonal wind data not found in input files"
     assert "v" in data, "meridional wind data not found in input files"
     assert "t" in data, "temperature data not found in input files"
@@ -131,8 +181,9 @@ if __name__ == "__main__":
 
     init = pd.to_datetime(data.time.values)[0]
     start = init + dt.timedelta(hours=48)
-    # Remove first 48 hours of forecasts
-    if is_ens:
+    # Remove first 48 hours of forecasts (not reliable for ESA) but keep for
+    # forecast evaluation purposes
+    if is_ens and not args.eval:
         data = data.sel(time=slice(start, None))
 
     out = { var: [] for var in calculator.return_vars }
@@ -141,6 +192,7 @@ if __name__ == "__main__":
     _t_start = dt.datetime.now()
 
     valids = pd.to_datetime(data.time.values)
+    assert len(valids) > 0, valids
     for i, time in enumerate(valids):
 
         # Report on progress
@@ -207,6 +259,8 @@ if __name__ == "__main__":
     # Need to add ensemble coordinates if input data is from ENS
     if is_ens:
         coords["number"] = data.number
+    if args.eval:
+        coords["valid"] = data.valid
 
     # Global attributes
     attrs = {
@@ -223,7 +277,9 @@ if __name__ == "__main__":
 
     # Generate output file name
     name = "data/"
-    if is_ens:
+    if args.eval:
+        name += "EVAL-{:%Y-%m-%dT%H}Z".format(pd.to_datetime(data.valid.values[0]))
+    elif is_ens:
         name += "ENS-{:%Y-%m-%dT%H}Z".format(init)
     else:
         name += "ERA-{:%Y-%m-%d}-to-{:%Y-%m-%d}".format(
