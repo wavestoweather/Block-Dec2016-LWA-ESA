@@ -1,6 +1,6 @@
 # Block-Dec2016-LWA-ESA
 
-Code to produce all figures of the article **Evidence for a "Traffic Jam" Onset of Blocked Flow from Ensemble Sensitivity Analysis** (submitted to JAS).
+Code to produce all figures of the article **The Onset of a Blocked Flow Event as a "Traffic Jam": Characterization with Ensemble Sensitivity Analysis** (in revision at JAS).
 
 - Research by [Christopher Polster](https://dynmet.ipa.uni-mainz.de/christopher-polster/) and [Volkmar Wirth](https://dynmet.ipa.uni-mainz.de/volkmar-wirth/).
 - Software by Christopher Polster.
@@ -35,10 +35,21 @@ Use the scripts and instructions in the [`data`](data) directory to obtain the r
     | | + ENS-2016-12-11T00Z-t.nc
     | | + ENS-2016-12-11T00Z-u.nc
     | | + ENS-2016-12-11T00Z-v.nc
+    | + EVAL
+    | | + ENS-DEC18-EVAL-2016-12-08T00Z.nc
+    | | + ENS-DEC18-EVAL-2016-12-08T12Z.nc
+    | | + ...
+    | | + ENS-DEC18-EVAL-2016-12-18T00Z.nc
+    | | + eval-requests.py
+    | | + eval-submit
+    | | + eval-to-netcdf
     | + job.sh
     + download-ERA5.py
     + ERA-2016-12-10-to-2016-12-24-uvt.nc
     + README.md
+
+Note that while the analysis and plots are based on 2° data, 1° data is obtained by the provided download scripts.
+Input data is coarsened during processing (`--half-resolution` parameter of `scripts.calculate-lwa`).
 
 ### Software Requirements
 
@@ -48,7 +59,7 @@ The following software needs to be available to run the data processing and plot
 - Fortran compiler (for building the `hn2016_falwa` Python extensions)
 - C compiler with OpenMP (for building Python extensions)
 - Python 3 with packages listed in [`requirements.txt`](requirements.txt)
-- lualatex with fontspec, amsmath, tikz, graphicx (Fig. 1 and to combine panels for Fig. 6)
+- lualatex with fontspec, amsmath, tikz, graphicx (Fig. 1 and to combine panels for Fig. 8)
 
 ### Data Analysis and Plots
 
@@ -65,11 +76,13 @@ Figures will appear in the `figures` directory:
 - Fig. 1: `figures/forecast-combination.pdf`
 - Fig. 2: `figures/event24-reanalysis+nh18fig5.pdf`
 - Fig. 3: `figures/event24-plume.pdf`
-- Fig. 4: `figures/event24-maps+hovmoeller.pdf`
-- Fig. 5: `figures/event24-cluster+scatter.pdf`
-- Fig. 6: `figures/event24-maps-separate.pdf`
-- Fig. 7: `figures/event24-cluster-f2.pdf`
-- Fig. 8: `figures/event24-nh18fig4.pdf`, does not contain the fits of [Nakamura and Huang (2018)](https://doi.org/10.1126/science.aat0721) due to licensing restrictions
+- Fig. 4: `figures/event24-budget.pdf`
+- Fig. 5: `figures/event24-evaluation.pdf`
+- Fig. 6: `figures/event24-maps+hovmoeller.pdf`
+- Fig. 7: `figures/event24-cluster+scatter.pdf`
+- Fig. 8: `figures/event24-maps-separate.pdf`
+- Fig. 9: `figures/event24-cluster-f2.pdf`
+- Fig. 10: `figures/event24-nh18fig4.pdf`, does not contain the fits of [Nakamura and Huang (2018)](https://doi.org/10.1126/science.aat0721) due to licensing restrictions
 
 Because the statistical significance test is based on a randomized procedure, results may vary slightly each time the plots are created.
 
