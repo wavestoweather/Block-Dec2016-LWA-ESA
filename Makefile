@@ -2,11 +2,14 @@
 NSAMPLES := 1000
 
 # How many ensemble members in the sampled ensemble?
-SAMPLE_SIZE := 75
+SAMPLE_SIZE := 100
 
 # Threshold for the correlation distribution width below which datapoints are
 # considered to be statistically significant
-SIGNIFICANCE_LEVEL := 0.1
+SIGNIFICANCE_LEVEL := 0.09
+
+# How many forecast members per cluster?
+NCLUSTER := 15
 
 # Determine filename suffix for C-extensions to installed Python
 PYEXT := $(shell python3-config --extension-suffix)
@@ -18,6 +21,7 @@ FIGURES := \
 		figures/event24-plume.pdf \
 		figures/event24-budget.pdf \
 		figures/event24-evaluation.pdf \
+		figures/idealized.pdf \
 		figures/event24-maps+hovmoeller.pdf \
 		figures/event24-cluster+scatter.pdf \
 		figures/event24-maps-separate.pdf \
@@ -25,7 +29,7 @@ FIGURES := \
 		figures/event24-nh18fig4.pdf
 
 
-.PHONY: all clean local
+.PHONY: all clean
 
 all: $(FIGURES)
 
@@ -36,6 +40,28 @@ clean:
 	rm -f scripts/common/_*.o
 	rm -f scripts/common/_*.so
 	rm -f scripts/hn2016_falwa/*.so
+
+
+# Simulations with the traffic jam model
+
+SIMULATIONS := \
+	data/idealized-0.40-60-2.0.nc \
+	data/idealized-0.40-55-2.0.nc \
+	data/idealized-0.40-65-2.0.nc \
+	data/idealized-0.40-60-1.8.nc \
+	data/idealized-0.40-60-2.2.nc
+
+figures/idealized.pdf: $(SIMULATIONS) scripts/plot-idealized.py
+	python3 -m scripts.plot-idealized $(SIMULATIONS) --output $@ --data-output "data/idealized.json"
+
+data/idealized-%-60-2.0.nc: scripts/run-idealized.py
+	python3 -m scripts.run-idealized $@ --alpha="$*" --urefcg="60" --forcing-peak="-2.0"
+
+data/idealized-0.40-%-2.0.nc: scripts/run-idealized.py
+	python3 -m scripts.run-idealized $@ --alpha="0.40" --urefcg="$*" --forcing-peak="-2.0"
+
+data/idealized-0.40-60-%.nc: scripts/run-idealized.py
+	python3 -m scripts.run-idealized $@ --alpha="0.40" --urefcg="60" --forcing-peak="-$*"
 
 
 # Python scipts for data processing and plotting, C-extensions
@@ -86,7 +112,7 @@ scripts/hn2016_falwa/%$(PYEXT): scripts/hn2016_falwa/%.f90
 
 # Write processed data to netcdf files:
 event24_ana := data/ERA-2016-12-10-to-2016-12-24-lwa-qg.nc
-event24_ens := data/ENS-2016-12-10T00Z-lwa-qg.nc data/ENS-2016-12-10T12Z-lwa-qg.nc data/ENS-2016-12-11T00Z-lwa-qg.nc
+event24_ens := data/ENS-2016-12-09T12Z-lwa-qg.nc data/ENS-2016-12-10T00Z-lwa-qg.nc data/ENS-2016-12-10T12Z-lwa-qg.nc data/ENS-2016-12-11T00Z-lwa-qg.nc
 event24_eval := data/EVAL-2016-12-18T00Z-lwa-qg.nc
 
 # Don't remove these intermediate files
@@ -102,7 +128,7 @@ data/ENS-%-lwa-qg.nc: scripts/calculate-lwa.py data/IFS-ENS/ENS-%/ENS-*-[uvt].nc
 	python3 -m scripts.calculate-lwa --half-resolution $(filter-out $<,$^)
 
 # Forecast evaluation data for 18 Dec 00 UTC
-data/EVAL-2016-12-18T00Z-lwa-qg.nc: scripts/calculate-lwa.py data/IFS-ENS/EVAL/ENS-DEC18-EVAL-*.nc | data
+data/EVAL-2016-12-18T00Z-lwa-qg.nc: scripts/calculate-lwa.py data/IFS-ENS/EVAL/ENS-DEC18-EVAL-*.nc
 	python3 -m scripts.calculate-lwa --half-resolution --eval data/IFS-ENS/EVAL/ENS-DEC18-EVAL-*.nc
 
 
@@ -114,40 +140,51 @@ figures/forecast-combination.pdf: figures/forecast-combination/forecast-combinat
 	cd $(dir $<) && lualatex $(notdir $<)
 	mv $(<:.tex=.pdf) $@
 
+
 # Figure 2: Reanalysis overview
+figures/event24-reanalysis+nh18fig5.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
+	python3 -m scripts.plot reanalysis+nh18fig5 2016-12-18T00,65,10,35,-30 $(event24_ens) \
+			--reanalysis $(event24_ana) \
+			--output $@ \
+			--hovmoeller-extent "target" \
+			--end 2016-12-24T00
+
+
 # Figure 3: Ensemble target metric overview
-# Figure 6: ESA maps and Hovmöller with full flux
-# Figure 7: Cluster and scatter analysis of upstream region
-figures/event24-%.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
+# Figure 7: ESA maps and Hovmöller with full flux
+# Figure 8: Cluster and scatter analysis of upstream region (needs data from idealized experiment)
+figures/event24-%.pdf: scripts/plot.py figures/idealized.pdf $(event24_ana) $(event24_ens)
 	python3 -m scripts.plot $* 2016-12-18T00,65,10,35,-30 $(event24_ens) \
 			--reanalysis $(event24_ana) \
 			--output $@ \
 			--nsamples $(NSAMPLES) \
 			--sample-size $(SAMPLE_SIZE) \
 			--significance-level $(SIGNIFICANCE_LEVEL) \
+			--ncluster $(NCLUSTER) \
 			--delta-hours "0,-24,-48,-72,-96" \
 			--source "f1+f2+f3" \
 			--scatter 2016-12-16T00,65,-90,35,-15 \
+			--scatter-idealized "data/idealized.json" \
 			--hovmoeller-extent "target" \
-			--end 2016-12-24T00
+			--end 2016-12-21T00
 
 
 # Figure 4: Integrated budget in 2.5 days prior to onset
-figures/event24-budget.pdf: scripts/plot-budget.py $(event24_ana) | figures
+figures/event24-budget.pdf: scripts/plot-budget.py $(event24_ana)
 	python3 -m scripts.plot-budget $(event24_ana) 2016-12-15T12 2016-12-18T00,65,10,35,-30 \
 			--statistics-output "data/budget-statistics.json" \
 			--output $@
 
 
 # Figure 5: Target forecast evaluation
-figures/event24-evaluation.pdf: scripts/plot-evaluation.py $(event24_eval) $(event24_ana) | figures
+figures/event24-evaluation.pdf: scripts/plot-evaluation.py $(event24_eval) $(event24_ana)
 	python3 -m scripts.plot-evaluation 65,10,35,-30 $(event24_eval) \
 		--reanalysis $(event24_ana) \
-		--highlight 2016-12-10T00 2016-12-10T12 2016-12-11T00 \
+		--highlight 2016-12-09T12 2016-12-10T00 2016-12-10T12 2016-12-11T00 \
 		--output $@
 
 
-# Figure 8: ESA maps with flux terms
+# Figure 9: ESA maps with flux terms
 figures/event24-maps-separate.pdf: figures/event24-maps-separate/event24-maps-separate.tex \
 		figures/event24-maps-separate/f1f3.pdf figures/event24-maps-separate/f2.pdf
 	cd $(dir $<) && lualatex $(notdir $<)
@@ -160,6 +197,7 @@ figures/event24-maps-separate/f1f3.pdf: scripts/plot.py $(event24_ana) $(event24
 			--nsamples $(NSAMPLES) \
 			--sample-size $(SAMPLE_SIZE) \
 			--significance-level $(SIGNIFICANCE_LEVEL) \
+			--ncluster $(NCLUSTER) \
 			--delta-hours "24, 0,-24, -48" \
 			--source "f1+f3" \
 			--panel-letters "abcd"
@@ -171,11 +209,13 @@ figures/event24-maps-separate/f2.pdf: scripts/plot.py $(event24_ana) $(event24_e
 			--nsamples $(NSAMPLES) \
 			--sample-size $(SAMPLE_SIZE) \
 			--significance-level $(SIGNIFICANCE_LEVEL) \
+			--ncluster $(NCLUSTER) \
 			--delta-hours "24, 0,-24, -48" \
 			--source "f2" \
 			--panel-letters "efgh"
 
-# Figure 9: Cluster analysis of F2 in block
+
+# Figure 10: Cluster analysis of F2 in block
 figures/event24-cluster-f2.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 	python3 -m scripts.plot cluster 2016-12-18T00,65,10,35,-30 $(event24_ens) \
 			--reanalysis $(event24_ana) \
@@ -183,9 +223,11 @@ figures/event24-cluster-f2.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 			--nsamples $(NSAMPLES) \
 			--sample-size $(SAMPLE_SIZE) \
 			--significance-level $(SIGNIFICANCE_LEVEL) \
+			--ncluster $(NCLUSTER) \
 			--source "f2"
 
-# Figure 10: Flux-LWA relationship in block (similar to NH18's Fig. 4)
+
+# Figure 11: Flux-LWA relationship in block (similar to NH18's Fig. 4)
 figures/event24-nh18fig4.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 	python3 -m scripts.plot nh18fig4 2016-12-18T00,65,10,35,-30 $(event24_ens) \
 			--reanalysis $(event24_ana) \
@@ -193,5 +235,5 @@ figures/event24-nh18fig4.pdf: scripts/plot.py $(event24_ana) $(event24_ens)
 			--nsamples $(NSAMPLES) \
 			--sample-size $(SAMPLE_SIZE) \
 			--significance-level $(SIGNIFICANCE_LEVEL) \
+			--ncluster $(NCLUSTER) \
 			--scatter 2016-12-18T00,50,-5,40,-15
-

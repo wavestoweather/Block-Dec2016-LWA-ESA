@@ -64,6 +64,7 @@ def format_date_full(x):
 
 # Axes limits as a multiple of some value
 def mult_limit(values, mult=10, tol=0, minval=None, maxval=None):
+    values = np.asarray(values).flatten()
     # Find next multiple below minium
     ymin = int(min(values) / mult) * mult
     while min(values) < ymin:
@@ -151,7 +152,7 @@ def plot_box(ax, box, **kwargs):
 
 # Plot presets
 
-def plume(ax, x, ys, clusters, reanalysis=None, percentile=None, linewidth=1.0, **kwargs):
+def plume(ax, x, ys, clusters, reanalysis=None, ncluster=None, linewidth=1.0, **kwargs):
     # Unpack clusters
     bot_cluster, not_cluster, top_cluster = clusters
     # Number of members in ensemble to determine line alpha
@@ -164,8 +165,8 @@ def plume(ax, x, ys, clusters, reanalysis=None, percentile=None, linewidth=1.0, 
     legend_handles = [line_not[0], line_top[0], line_bot[0]]
     legend_labels = [
         "ENS member",
-        "Top" if percentile is None else "{}% top".format(percentile),
-        "Bottom" if percentile is None else "{}% bottom".format(percentile),
+        "Top" + ("" if ncluster is None else " {}".format(ncluster)),
+        "Bottom" + ("" if ncluster is None else " {}".format(ncluster)),
     ]
     # Add the reanalysis timeseries to the plot and legend
     if reanalysis is not None:

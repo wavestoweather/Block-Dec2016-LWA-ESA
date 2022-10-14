@@ -3,6 +3,7 @@ import collections
 import datetime as dt
 import operator
 import os
+import json
 from functools import partial, reduce
 
 
@@ -39,8 +40,8 @@ parser.add_argument("--reanalysis", type=verify_path, default=None, help="""
     Point this at a reanalysis dataset to produce an additional panel with
     reanalysis LWA and PV as well as a reanalysis timeseries in the plume panel
 """)
-parser.add_argument("--percentile", type=float, default=10, help="""
-    Which percentiles to use for the cluster analysis
+parser.add_argument("--ncluster", type=int, default=5, help="""
+    How many members selected for the cluster analysis
 """)
 parser.add_argument("--nsamples", type=int, default=1000, help="""
     Number of samples drawn for the bootstrap significance test
@@ -63,6 +64,9 @@ parser.add_argument("--source", type=str, default="lwa", help="""
 """)
 parser.add_argument("--scatter", type=parse_target, default=None, help="""
     valid,N,E,S,W for scatter plot source definition.
+""")
+parser.add_argument("--scatter-idealized", type=verify_path, default=None, help="""
+    Reference curve added to scatter plot (json format).
 """)
 parser.add_argument("--hovmoeller-extent", type=str, default="target", help="""
     The meridional extend used in the spatial reduction of data for the
@@ -155,7 +159,7 @@ if __name__ == "__main__":
     # 3-panel plot with target plume and LWA/PV rank clusters
     if args.layout == "plume":
         fig = plt.figure(figsize=(9, 3.5))
-        ax_plu = fig.add_axes(     (0.06, 0.08, 0.46, 0.83))
+        ax_plu = fig.add_axes(     (0.06, 0.08, 0.45, 0.83))
         ax_top = add_map_axes(fig, (0.58, 0.58, 0.35, 0.33), lonlim=(-105, 75))
         ax_bot = add_map_axes(fig, (0.58, 0.08, 0.35, 0.33), lonlim=(-105, 75))
         cx_lwa = fig.add_axes((0.925, 0.08, 0.01, 0.83)) # for the LWA colorbar
@@ -275,7 +279,7 @@ if __name__ == "__main__":
         ax_sct = fig.add_axes((0.68, 0.10, 0.29, 0.46))
         ax_top = add_map_axes(fig, (0.06, 0.58, 0.52, 0.30), noxlabels=True)
         ax_bot = add_map_axes(fig, (0.06, 0.21, 0.52, 0.30))
-        cx_src = fig.add_axes((0.06, 0.10, 0.45, 0.023))
+        cx_src = fig.add_axes((0.06, 0.10, 0.52, 0.023))
         tx_src = fig.text(0.06, 0.98, "", ha="left", va="top", fontsize="x-large")
     # Scatter plot with corresponding map on top
     elif args.layout == "map+scatter":
@@ -382,12 +386,10 @@ if __name__ == "__main__":
     # Compute rank-sorted indices of members for cluster selection
     target_ens_ranks = np.argsort(target_ens_values)
     
-    # How many members per cluster?
-    ncluster = int(target_ens_ranks.size * args.percentile / 100.)
     # Member indices for clusters
-    bot_cluster = target_ens_ranks[         : ncluster]
-    not_cluster = target_ens_ranks[ ncluster:-ncluster]
-    top_cluster = target_ens_ranks[-ncluster:         ]
+    bot_cluster = target_ens_ranks[              : args.ncluster]
+    not_cluster = target_ens_ranks[ args.ncluster:-args.ncluster]
+    top_cluster = target_ens_ranks[-args.ncluster:              ]
 
     # Same for reanalysis data if given
     if args.reanalysis is not None:
@@ -509,7 +511,7 @@ if __name__ == "__main__":
             target_ens.values,
             clusters=(bot_cluster, not_cluster, top_cluster),
             reanalysis=(None if args.reanalysis is None else target_ana.values),
-            percentile=args.percentile
+            ncluster=args.ncluster
         )
         ax_plu.legend(*_legend, loc="upper left", fontsize="small")
         # Only use 00 times as time axis labels
@@ -517,8 +519,7 @@ if __name__ == "__main__":
         ax_plu.set_xticks(time_ticks[::2])
         ax_plu.set_xticks(time_ticks, minor=True)
         ax_plu.xaxis.set_major_formatter(date_formatter)
-        ax_plu.set_ylim(mult_limit(target_ens_values, mult=10, tol=10, minval=0))
-        # Configure plume plot
+        ax_plu.set_ylim(mult_limit(target_ens.values, mult=5, tol=5, minval=0))
         ax_plu.set_xlim((min(target_ens.time.values), max(target_ens.time.values)))
         set_grid(ax_plu)
         ax_plu.set_ylabel(target_metric.label(lwa_attrs))
@@ -691,7 +692,7 @@ if __name__ == "__main__":
                 clusters=(bot_cluster, not_cluster, top_cluster),
                 reanalysis=(None if args.reanalysis is None else _scatter_metric(source_ana.sel(_period)).values),
                 linewidth=0.8,
-                percentile=args.percentile
+                ncluster=args.ncluster
             )
             ax_src.legend(*_legend, loc="upper left", fontsize="x-small", handlelength=1.0)
             # Only use 00 times as time axis labels
@@ -699,7 +700,7 @@ if __name__ == "__main__":
             ax_src.set_xticks([t.values for t in source_ens_plume.time if t.dt.hour == 12], minor=True)
             ax_src.xaxis.set_major_formatter(date_formatter)
             ax_src.set_xlim((min(source_ens_plume.time.values), max(source_ens_plume.time.values)))
-            ax_src.set_ylim(mult_limit(source_ens_plume.values.flatten(), 50))
+            ax_src.set_ylim(mult_limit(source_ens_plume.values[:-2,:], 50))
             set_panel_title(ax_src, "Evolution of Agg. " + texify(source_ens.attrs["name"]))
             ax_src.set_ylabel("Agg. {source} [{unit}]".format(
                 source=texify(source_ens.attrs["name"]),
@@ -730,18 +731,26 @@ if __name__ == "__main__":
             )
         # Linear fit to ensemble
         reg = linregress(source_ens_values, target_ens_values)
-        xmin = min(source_ens_values) - 20
-        xmax = max(source_ens_values) + 20
-        ax_sct.plot(
-            [xmin, xmax],
-            [reg.intercept + reg.slope * xmin, reg.intercept + reg.slope * xmax],
-            color="#000000",
-            linewidth=1.
-        )
+        # Idealized reference curve if data given
+        if args.scatter_idealized is not None:
+            with open(args.scatter_idealized, "r") as f:
+                idealized = { k: np.asarray(v) for k, v in json.load(f).items() }
+            _a = idealized["z"] # jammed 
+            _b = ~idealized["z"] | np.roll(~idealized["z"], 1) # non-jammed
+            ax_sct.plot(idealized["x"][_a], idealized["y"][_a], color="#000000", linewidth=1.8, linestyle="solid", label="Idealized")
+            ax_sct.plot(idealized["x"][_b], idealized["y"][_b], color="#000000", linewidth=1.8, linestyle=(0, (2, 1)))
+        else:
+            xmin = min(source_ens_values) - 20
+            xmax = max(source_ens_values) + 20
+            ax_sct.plot(
+                [xmin, xmax],
+                [reg.intercept + reg.slope * xmin, reg.intercept + reg.slope * xmax],
+                color="#000000",
+                linewidth=1.
+            )
         # Configure scatter panel
         ax_sct.legend(loc="upper left", fontsize="x-small", markerscale=0.7, handlelength=1.0)
-        _ymin, _ymax = mult_limit(target_ens_values, mult=5, minval=0)
-        ax_sct.set_ylim((_ymin, 1.10*_ymax - 0.10*_ymin))
+        ax_sct.set_ylim(mult_limit(target_ens_values, mult=5, minval=0))
         ax_sct.set_ylabel("Target ({}) [{}]".format(
             format_date_full(args.target.valid),
             texify(lwa_attrs["unit"])
@@ -806,6 +815,8 @@ if __name__ == "__main__":
         ax_map.yaxis.tick_right()
         ax_map.set_yticks([])
         ax_map.set_xticks([])
+        # Print the correlation value for F1+F3 vs. <A>cos(ϕ)
+        print("corr[<A>cos(ϕ), F1+F3] = {:.2f}".format(linregress(_lwa_ens, _f1f3_ens).rvalue))
 
 
     # LWA and flux Hovmöller panels of reanalysis #

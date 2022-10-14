@@ -90,6 +90,8 @@ if __name__ == "__main__":
         half = len(fx) // 2
         ax.plot(fx[:half], fy[:half], linewidth=0, color=plotting.esa_blue, marker="x", markersize=4, zorder=10)
         ax.plot(fx[half:], fy[half:], linewidth=0, color=plotting.esa_red, marker="x", markersize=4, zorder=10)
+        # Print some statistics about the inividual forecasts
+        print("INIT {:%Y-%m-%d %H}Z: {:6.2f} max  {:6.2f} min".format(init, max(values), min(values)))
 
     # Add marker and horizontal line for reanalysis value if available
     if args.reanalysis is not None:
@@ -97,6 +99,8 @@ if __name__ == "__main__":
         ax.plot([i], [target_ana], marker="*", markersize=10, color="#000", linewidth=1, zorder=99, label="Reanalysis")
         ax.axhline(target_ana, linewidth=1, color="#000", zorder=0)
         ax.legend(loc="center right", fontsize="small")
+        # Print the reanalysis target value too
+        print("REANALYSIS: {:6.2f}".format(target_ana.values))
 
     # Translate x-ticks to dates and add nice labels
     ticks = np.arange(0, len(target_ens)+1, 4)

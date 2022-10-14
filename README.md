@@ -1,6 +1,6 @@
 # Block-Dec2016-LWA-ESA
 
-Code to produce all figures of the article **The Onset of a Blocked Flow Event as a "Traffic Jam": Characterization with Ensemble Sensitivity Analysis** (in revision at JAS).
+Code to produce all figures of the article **The Onset of a Blocking Event as a "Traffic Jam": Characterization with Ensemble Sensitivity Analysis** (in revision at JAS).
 
 - Research by [Christopher Polster](https://dynmet.ipa.uni-mainz.de/christopher-polster/) and [Volkmar Wirth](https://dynmet.ipa.uni-mainz.de/volkmar-wirth/).
 - Software by Christopher Polster.
@@ -23,6 +23,10 @@ Use the scripts and instructions in the [`data`](data) directory to obtain the r
 
     data
     + IFS-ENS
+    | + ENS-2016-12-09T12Z
+    | | + ENS-2016-12-09T12Z-t.nc
+    | | + ENS-2016-12-09T12Z-u.nc
+    | | + ENS-2016-12-09T12Z-v.nc
     | + ENS-2016-12-10T00Z
     | | + ENS-2016-12-10T00Z-t.nc
     | | + ENS-2016-12-10T00Z-u.nc
@@ -78,11 +82,12 @@ Figures will appear in the `figures` directory:
 - Fig. 3: `figures/event24-plume.pdf`
 - Fig. 4: `figures/event24-budget.pdf`
 - Fig. 5: `figures/event24-evaluation.pdf`
-- Fig. 6: `figures/event24-maps+hovmoeller.pdf`
-- Fig. 7: `figures/event24-cluster+scatter.pdf`
-- Fig. 8: `figures/event24-maps-separate.pdf`
-- Fig. 9: `figures/event24-cluster-f2.pdf`
-- Fig. 10: `figures/event24-nh18fig4.pdf`, does not contain the fits of [Nakamura and Huang (2018)](https://doi.org/10.1126/science.aat0721) due to licensing restrictions
+- Fig. 6: `figures/idealized.pdf`
+- Fig. 7: `figures/event24-maps+hovmoeller.pdf`
+- Fig. 8: `figures/event24-cluster+scatter.pdf`
+- Fig. 9: `figures/event24-maps-separate.pdf`
+- Fig. 10: `figures/event24-cluster-f2.pdf`
+- Fig. 11: `figures/event24-nh18fig4.pdf`, does not contain the fits of [Nakamura and Huang (2018)](https://doi.org/10.1126/science.aat0721) due to licensing restrictions
 
 Because the statistical significance test is based on a randomized procedure, results may vary slightly each time the plots are created.
 

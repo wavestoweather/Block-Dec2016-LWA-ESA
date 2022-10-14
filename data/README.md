@@ -4,6 +4,7 @@
 
 IFS data can be downloaded from the ECMWF MARS archive. If you have the required credentials, log in to ecgate and use the `job.sh` script provided in the `IFS-ENS` folder to obtain the files
 
+    $ sbatch job.sh 2016-12-09 12
     $ sbatch job.sh 2016-12-10 00
     $ sbatch job.sh 2016-12-10 12
     $ sbatch job.sh 2016-12-11 00

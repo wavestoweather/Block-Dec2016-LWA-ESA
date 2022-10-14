@@ -6,12 +6,12 @@
 
 \begin{document}
     \begin{tikzpicture}[xscale=0.45,yscale=0.5]
-        % No-data zones
-        \fill[black!15!white] (4,0) rectangle (22,4);
+        % Data zone
+        \fill[black!15!white] (4,0) rectangle (20,4);
         % Forecasts
-        \foreach \x in {1,2,3} {
-            \draw[thick,-latex] (\x-3,\x) -- (\x+22,\x);
-            \fill[black] (\x-3,\x) circle (0.15) node[anchor=east] {ENS\x\;};
+        \foreach \x in {1,2,3,4} {
+            \draw[thick,-latex] (\x-4,\x) -- (\x+21,\x);
+            \fill[black] (\x-4,\x) circle (0.15) node[anchor=east] {ENS\x\;};
         }
         % Last initial and target evaluation time
         \draw[thick,dashed] (0,0) -- (0,4);
