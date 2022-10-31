@@ -123,8 +123,8 @@ if __name__ == "__main__":
     linear = - 1. / tau - kappa * k**2
 
     # Stationary LWA
-    A0 = 18 * hann(lon, 10., 150)
-    # ...
+    A0 = 19 * hann(lon, 10., 135)
+    # Uniform constant forcing throughout the domain
     base_forcing = 1.825e-5 * np.ones_like(x)
 
     def flux(lwa):
@@ -140,17 +140,17 @@ if __name__ == "__main__":
     # Start with no transient LWA
     init = np.fft.rfft(np.zeros_like(A0))
     # Run 200 days of spin-up to reach steady state
-    _, [_, init] = model.run(init, 200*DAYS//step, t=0, keep_every=0)#TODO
-    
+    _, [_, init] = model.run(init, 200*DAYS//step, t=0, keep_every=0)
+
     lwa, flx = [], []
     # Run each ensemble members with a different forcing strength
-    strengths = np.linspace(0., 0.0009, args.nens)
+    strengths = np.linspace(0.0000, 0.0007, args.nens)
     for strength in strengths:
         # Model with upstream forcing
         def nonlinear(lwa_spectral, t):
             lwa = np.fft.irfft(lwa_spectral)
             fluxdiv = 1j * k * np.fft.rfft(flux(lwa))
-            forcing = base_forcing + (strength * hann(t, args.forcing_peak*DAYS, 4.0*DAYS) * hann(lon, -75., 50.))
+            forcing = base_forcing + (strength * hann(t, args.forcing_peak*DAYS, 3.5*DAYS) * hann(lon, -75., 75.))
             return np.fft.rfft(forcing) - fluxdiv
         model = ETDRK4Diagonal(step, linear, nonlinear)
         # Run 8 days of actual simulation
@@ -163,6 +163,7 @@ if __name__ == "__main__":
     data_vars = {
         "lwa": (("number", "time", "longitude"), np.asarray(lwa, dtype=np.float32)),
         "flux": (("number", "time", "longitude"), np.asarray(flx, dtype=np.float32)),
+        "lwa_stat": (("longitude",), A0),
         "lwa_thresh": (("longitude",), 0.5 * (args.urefcg - 2. * args.alpha * A0) / args.alpha)
     }
     coords = {

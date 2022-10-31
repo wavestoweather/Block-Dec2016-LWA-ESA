@@ -715,7 +715,7 @@ if __name__ == "__main__":
             s=25,
             c=sct_color,
             marker="o",
-            alpha=0.80,
+            alpha=0.75,
             linewidth=0,
             label="ENS member"
         )
@@ -735,10 +735,17 @@ if __name__ == "__main__":
         if args.scatter_idealized is not None:
             with open(args.scatter_idealized, "r") as f:
                 idealized = { k: np.asarray(v) for k, v in json.load(f).items() }
-            _a = idealized["z"] # jammed 
-            _b = ~idealized["z"] | np.roll(~idealized["z"], 1) # non-jammed
-            ax_sct.plot(idealized["x"][_a], idealized["y"][_a], color="#000000", linewidth=1.8, linestyle="solid", label="Idealized")
-            ax_sct.plot(idealized["x"][_b], idealized["y"][_b], color="#000000", linewidth=1.8, linestyle=(0, (2, 1)))
+            z0 = idealized["z0"]
+            z1 = idealized["z1"]
+            _a = ~z1 # never jammed  ->  dotted
+            _a = _a | np.roll(_a, 1) # extend to meet next line segement
+            _b = z1 & ~z0 # jammed at some time  ->  dashed
+            _b = _b | np.roll(_b, 1) # extend to meet next line segement
+            _c = z0 # jammed at +0  ->  solid
+            # Add each line segment
+            ax_sct.plot(idealized["x"][_a], idealized["y"][_a], color="#000000", linewidth=2.0, linestyle=(0, (1, 2)))
+            ax_sct.plot(idealized["x"][_b], idealized["y"][_b], color="#000000", linewidth=2.0, linestyle=(0, (2, 1)))
+            ax_sct.plot(idealized["x"][_c], idealized["y"][_c], color="#000000", linewidth=2.0, linestyle="solid", label="Idealized")
         else:
             xmin = min(source_ens_values) - 20
             xmax = max(source_ens_values) + 20

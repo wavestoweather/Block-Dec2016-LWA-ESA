@@ -28,8 +28,10 @@ if __name__ == "__main__":
         # subtracting the stationary state after spin-up at the beginning of the
         # simulation from the flux field, then visualize flux anomalies.
         ds["flux*"] = ds["flux"] - ds["flux"].isel(time=0)
-        # Determine if member is jammed at block time (require more than 5x2°=10° above threshold)
-        ds["jammed"] = (ds["lwa"].sel({ "time": bl_d }) > ds["lwa_thresh"]).sum(dim="longitude") > 5
+        # Determine if member is jammed at block time
+        lwa_trans = ds["lwa"] - ds["lwa_stat"]
+        ds["jammed0"] = (lwa_trans.sel({ "time": bl_d              }) > ds["lwa_thresh"]).any(dim="longitude")
+        ds["jammed1"] = (lwa_trans.sel({ "time": slice(bl_d, None) }) > ds["lwa_thresh"]).any(dim=["longitude", "time"])
         return ds
 
     # Mean of the reference ensmeble
@@ -121,15 +123,18 @@ if __name__ == "__main__":
     for i in range(data["number"].size // nens):
         slc = slice(i*nens, (i+1)*nens)
         src = upstream["flux*"].values[slc]
-        jam = data["jammed"].values[slc]
+        jam0 = data["jammed0"].values[slc]
+        jam1 = data["jammed1"].values[slc]
         tgt = target[slc]
         # Reference simulation
         if i == 0:
             kw = { "color": "#000", "zorder": 10 }
-            fc = np.where(jam, "#000", "#FFF")
-            ax_sct.scatter(src, tgt, s=25, marker="o", color="#000", facecolor=fc, zorder=11)
+            fc = np.full(jam1.shape, "#FFF")
+            fc[jam1] = "#CCC"
+            fc[jam0] = "#000"
+            ax_sct.scatter(src, tgt, s=30, marker="o", color="#000", facecolor=fc, zorder=11)
             # Save values of src-tgt curve to file for use in other plots
-            curve = { "x": src.tolist(), "y": tgt.tolist(), "z": jam.tolist() }
+            curve = { "x": src.tolist(), "y": tgt.tolist(), "z0": jam0.tolist(), "z1": jam1.tolist() }
             if args.data_output is None:
                 print(json.dumps(curve, indent=4))
             else:
@@ -147,9 +152,9 @@ if __name__ == "__main__":
         ax_sct.plot(src, tgt, linewidth=1.2, **kw)
 
     handles = [
-        mlines.Line2D([], [], color="#000", label="Reference", markerfacecolor="#FFF"),
-        mlines.Line2D([], [], marker="o", color="#000", linewidth=0, label="< threshold", markerfacecolor="#FFF"),
-        mlines.Line2D([], [], marker="o", color="#000", linewidth=0, label="> threshold")
+        mlines.Line2D([], [], marker="o", color="#000", linewidth=0, label=r"$\hat A > {\hat A}_\mathrm{C}$ ($+0$ d)", markerfacecolor="#000"),
+        mlines.Line2D([], [], marker="o", color="#000", linewidth=0, label=r"$\hat A > {\hat A}_\mathrm{C}$", markerfacecolor="#CCC"),
+        mlines.Line2D([], [], marker="o", color="#000", linewidth=0, label=r"$\hat A < {\hat A}_\mathrm{C}$", markerfacecolor="#FFF"),
     ]
     leg1 = ax_sct.legend(handles=handles, loc="upper left", handlelength=1.2, fontsize="small")
     leg2 = ax_sct.legend(loc="lower center", fontsize="small", handlelength=1.2, ncol=2)
@@ -157,7 +162,7 @@ if __name__ == "__main__":
 
     ax_sct.set_xlim((-50, 950))
     ax_sct.set_xlabel(r"agg. LWA Flux (${:.0f} \;\mathrm{{d}}$) [$\mathrm{{m}}^2 \; \mathrm{{s}}^{{-2}}$]".format(up_d))
-    ax_sct.set_ylim((22, 85))
+    ax_sct.set_ylim((22, 84))
     ax_sct.set_ylabel(r"agg. LWA (${:.0f} \;\mathrm{{d}}$) [$\mathrm{{m}} \; \mathrm{{s}}^{{-1}}$]".format(bl_d))
     plotting.set_grid(ax_sct)
 
