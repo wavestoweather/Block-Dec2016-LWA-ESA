@@ -1,9 +1,9 @@
 cartopy>=0.20
-cdsapi
-cffi
-matplotlib
-numpy
-pandas
-scipy
-xarray
+cdsapi>=0.5
+cffi>=1.15
+matplotlib>=3.5
+numpy>=1.21
+pandas>=1.4
+scipy>=1.8
+xarray>=0.20
 
