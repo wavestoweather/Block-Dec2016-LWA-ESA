@@ -1,6 +1,8 @@
 # Block-Dec2016-LWA-ESA
 
-Code to produce all figures of the article **The Onset of a Blocking Event as a "Traffic Jam": Characterization with Ensemble Sensitivity Analysis** (in revision at JAS).
+Polster, C., and V. Wirth, 2023: The Onset of a Blocking Event as a “Traffic Jam”: Characterization with Ensemble Sensitivity Analysis. *J. Atmos. Sci.*, https://doi.org/10.1175/JAS-D-21-0312.1, in press.
+
+This repository contains the code to produce all figures of the article.
 
 - Research by [Christopher Polster](https://dynmet.ipa.uni-mainz.de/christopher-polster/) and [Volkmar Wirth](https://dynmet.ipa.uni-mainz.de/volkmar-wirth/).
 - Software by Christopher Polster.
@@ -62,7 +64,7 @@ The following software needs to be available to run the data processing and plot
 - make
 - Fortran compiler (for building the `hn2016_falwa` Python extensions)
 - C compiler with OpenMP (for building Python extensions)
-- Python 3 with packages listed in [`requirements.txt`](requirements.txt)
+- Python 3 with packages listed in [`requirements.txt`](requirements.txt) (the specified minumum versions were used during development, older versions may or may not work)
 - lualatex with fontspec, amsmath, tikz, graphicx (Fig. 1 and to combine panels for Fig. 8)
 
 ### Data Analysis and Plots
