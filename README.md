@@ -6,7 +6,7 @@ This repository contains the code to produce all figures of the article.
 
 - Research by [Christopher Polster](https://dynmet.ipa.uni-mainz.de/christopher-polster/) and [Volkmar Wirth](https://dynmet.ipa.uni-mainz.de/volkmar-wirth/).
 - Software by Christopher Polster.
-- [hn2016_falwa](https://github.com/csyhuang/hn2016_falwa/) package by [Clare S. Y. Huang](https://csyhuang.github.io/).
+- [hn2016_falwa](https://github.com/csyhuang/hn2016_falwa/) package by [Clare S. Y. Huang](https://csyhuang.github.io/). The version included in this repository is 0.5.0 from August 2021. The package has seen significant improvements since (see [releases](https://github.com/csyhuang/hn2016_falwa/releases)) and we recommend using the latest version.
 
 [LICENSE](LICENSE). The contents of `scripts/hn2016_falwa` are re-distributed under the terms of their [LICENSE](scripts/hn2016_falwa/LICENSE.txt).
 
