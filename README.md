@@ -1,6 +1,6 @@
 # Block-Dec2016-LWA-ESA
 
-Polster, C., and V. Wirth, 2023: The Onset of a Blocking Event as a “Traffic Jam”: Characterization with Ensemble Sensitivity Analysis. *J. Atmos. Sci.*, https://doi.org/10.1175/JAS-D-21-0312.1, in press.
+Polster, C., and V. Wirth, 2023: The Onset of a Blocking Event as a “Traffic Jam”: Characterization with Ensemble Sensitivity Analysis. *J. Atmos. Sci.*, 80, 1681–1699, https://dx.doi.org/10.1175/JAS-D-21-0312.1.
 
 This repository contains the code to produce all figures of the article.
 
